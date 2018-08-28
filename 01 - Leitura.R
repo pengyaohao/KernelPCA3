@@ -53,10 +53,11 @@ names(base_indice)[1] <- "DT"
 
 detach(package:plyr)
 j <- 2
-for (j in (1:nrow(arquivo))[-c(1,3)] ) {
+for (j in (1:nrow(arquivo))[-c(1,3,5)] ) {
   i <- arquivo$planilha[j]
   base <- read_excel(arquivo$arquivo[j],
                      sheet = i)
+  
   names(base)[1] <- "DT"
   names(base) <- gsub("(.*)\\s.*\\sEquity","\\1",names(base))
   
@@ -85,13 +86,21 @@ for (j in (1:nrow(arquivo))[-c(1,3)] ) {
   base_rf <- readRDS("data/rf.rds")
   base_rf <- base_rf %>% 
     mutate(DT = as.POSIXct(DT, format="%Y-%m-%d") ,
-           RF  = treasury_10) %>%
-    select(DT,RF)
+           RFe  = treasury_10) %>%
+    select(DT,RFe)
   
   
   base <- base %>%
     left_join(base_rf,
-              by = "DT")
+              by = "DT") %>% as.data.table()
+  
+  base[,RF:=ifelse(is.na(RFe),
+                   lag(RFe),
+                   RFe)]
+  
+  base <- base %>% 
+    select(-RFe)
+  ### corrigindo datas inexistentes na base americana
   
   
   base <- base  %>% 
@@ -119,10 +128,11 @@ for (j in (1:nrow(arquivo))[-c(1,3)] ) {
   ## menos de 10% de missing
   vars_sem_na <- dados_faltantes$V2[dados_faltantes$V1<(nrow(base)/10)]
   length(vars_sem_na)
-  base <- base %>%
-    select(vars_sem_na)
+  # base <- base %>%
+  #   select(vars_sem_na)
   
   saveRDS(base,paste0("data//global//",gsub("\\s","_NOVO_",i),".rds"))
-  
+  rm(base)
 }
 
+base$RF[1]
